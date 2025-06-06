@@ -1,0 +1,23 @@
+# Sample Configuration for Git Projects
+import os
+
+# Base paths for repositories
+# IMPORTANT: Replace these with your actual local paths
+PATH_CPP = r'C:\path\to\your\cpp\repos'
+PATH_JAVA = r'C:\path\to\your\java\repos'
+
+# Paths to external tools
+# IMPORTANT: Replace these with your actual local paths
+PATH_WINMERGE = r'C:\Program Files\WinMerge\WinMergeU.exe'
+PATH_TORTOISE = r'c:\Program Files\TortoiseGit\bin\TortoiseGitProc.exe'
+
+# Use TortoiseGit (True) or Git CLI (False)
+USE_TORTOISE = True
+
+# Project definitions: { "PROJECT_NAME": (base_path, {"repo1", "repo2", ...}) }
+# IMPORTANT: Define your projects and their corresponding repositories here
+PROJECTS = {
+    "PROJECT_CPP": (PATH_CPP, {"cpp-repo-1", "cpp-lib-1"}),
+    "PROJECT_JAVA": (PATH_JAVA, {"java-repo-1", "java-lib-1", "java-dependency-1"}),
+    # Add more projects as needed
+}

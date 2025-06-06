@@ -4,32 +4,18 @@ This repository contains a collection of various utility scripts designed for di
 
 ## Table of Contents
 
-- [Translations Script](#translations-script)
-  - [Setup and Usage](#setup-and-usage)
+- [AI Translate](#ai-translate)
+- [Git Projects Automation](#git-projects-automation)
 
+## AI Translate
 
-## Translations Script
+```{include} AI-Translate/README.md
+```
 
-The `AI-translate` directory houses a Python script (`translate.py`) designed for automated text translation. This script leverages external APIs for its translation capabilities.
+## Git Projects Automation
 
-### Setup and Usage
-
-1.  **Environment Variables**: Before running the script, you need to set up your environment variables. A template is provided in `AI-translate/.env.example`. Copy this file to `AI-translate/.env` and fill in the necessary API keys and configurations.
-
-    ```bash
-    cp AI-translate/.env.example AI-translate/.env
-    # Open AI-translate/.env and add your API keys
-    ```
-
-2.  **Dependencies**: Ensure you have Python installed. There are no required Python packages.
-
-3.  **Running the Script**: Execute the translation script from the `AI-translate` directory:
-
-    ```bash
-    python AI-translate/translate.py
-    ```
-
-    Follow the on-screen prompts or refer to the script's internal documentation for specific usage instructions and parameters.
+```{include} GitProjects/README.md
+```
 
 ---
 
