@@ -1,6 +1,7 @@
 import json
 import urllib.error
 import urllib.request
+import os
 
 def load_env_variable(file_path, key):
     """
@@ -20,7 +21,7 @@ def load_env_variable(file_path, key):
         print(f"Error loading .env file: {e}")
     return None
 
-API_KEY = load_env_variable(".env", "GEMINI_API_TOKEN")
+API_KEY = load_env_variable(f"{os.path.dirname(__file__)}/.env", "GEMINI_API_TOKEN")
 MODEL_NAME = "gemini-2.5-flash-preview-05-20"
 #MODEL_NAME = "gemma-3-27b-it"
 
@@ -116,16 +117,39 @@ def main():
         return
 
     # Define the target languages
-    target_languages = [
-        "French", "Spanish", "German", "Portuguese", "Italian", "Dutch",
-        "Russian", "Norwegian", "Slovakian", "Hungarian", "Polish", "Icelandic"
-    ]
+    target_languages = {
+        "Czech":        "cs",
+        "Danish":       "da",
+        "German":       "de",
+        "Greek":        "el",
+        "English":      "en",
+        "Spanish":      "es",
+        "Estonian":     "et",
+        "Finnish":      "fi",
+        "French":       "fr",
+        "Hebrew":       "he",
+        "Croatian":     "hr",
+        "Hungarian":    "hu",
+        "Icelandic":    "is",
+        "Italian":      "it",
+        "Korean":       "ko",
+        "Latvian":      "lv",
+        "Dutch":        "nl",
+        "Norwegian":    "no",
+        "Polish":       "pl",
+        "Portuguese":   "pt",
+        "Russian":      "ru",
+        "Slovak":       "sk",
+        "Slovenian":    "sl",
+        "Swedish":      "sv",
+        "Turkish":      "tr",
+    }
 
     # Construct a single prompt for all translations
-    translation_requests = [f"- {lang}" for lang in target_languages]
+    translation_requests = [f"- {lang_name} (Code: {lang_code})" for lang_name, lang_code in target_languages.items()]
 
     prompt = (
-        f"Translate the following English text to the specified languages. "
+        f"Translate the following English text to the specified languages, using their ISO 639-1 codes for the translation. "
         f"The text will be displayed on a Point of Sale (POS) terminal screen, "
         f"so the translation must be concise and use common terminology for payments and card handling. "
         f"For each language, output only the translated text, prefixed with the language name and a colon, like 'Language: Translated Text'. "

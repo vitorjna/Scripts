@@ -9,13 +9,13 @@ This repository contains a collection of various utility scripts designed for di
 
 ## AI Translate
 
-```{include} AI-Translate/README.md
-```
+This section describes the `translate.py` script, a Python-based tool for automated text translation using external APIs.
+For more details, see the [AI Translate README](AI-Translate/README.md).
 
 ## Git Projects Automation
 
-```{include} GitProjects/README.md
-```
+This section details the `git_projects.py` script, a Python tool designed for executing Git commands across multiple local repositories.
+For more details, see the [Git Projects Automation README](Git-Projects/README.md).
 
 ---
 

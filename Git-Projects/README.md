@@ -1,6 +1,6 @@
 # Git Projects Automation
 
-This script allows you to execute Git commands on multiple local repositories associated with specific projects. It's designed to streamline common Git operations across a set of related repositories.
+This script (`git_projects.py`) is a Python-based tool for executing Git commands across multiple local repositories associated with specific projects.
 
 ## Features
 
