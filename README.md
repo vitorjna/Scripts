@@ -5,6 +5,7 @@ This repository contains a collection of various utility scripts designed for di
 ## Table of Contents
 
 - [AI Translate](#ai-translate)
+- [Gemini Chat](#gemini-chat)
 - [Git Projects Automation](#git-projects-automation)
 - [Video Bitrate Analyzer](#video-bitrate-analyzer)
 
@@ -13,6 +14,12 @@ This repository contains a collection of various utility scripts designed for di
 This script (`translate.py`) is a Python-based tool for automated text translation, leveraging external APIs.
 
 For more details, see the [AI Translate README](AI-Translate/README.md).
+
+## Gemini Chat
+
+This script (`chat_with_gemini.py`) is a Python-based tool for interactive conversations with the Gemini AI model.
+
+For more details, see the [Gemini Chat Script README](Gemini-Chat/README.md).
 
 ## Git Projects Automation
 
