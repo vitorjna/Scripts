@@ -45,12 +45,17 @@ def getCommandForTool(command, tool):
 
 if __name__ == "__main__":
 
-    project_name = input(f"Select a Project: {', '.join(PROJECTS.keys())}: ").upper()
-
-    if project_name not in PROJECTS:
-        print("Invalid project selected.")
-        os.system('pause')
-        exit()
+    while True:
+        project_name = input(f"Select a Project: {', '.join(PROJECTS.keys())}: ").upper()
+        
+        if project_name == 'Q':
+            os.system('pause')
+            exit()
+            
+        if project_name not in PROJECTS:
+            print("Invalid project selected.")
+        else:
+            break
 
     reposLocation, repos = PROJECTS[project_name]
     print("Selected repos: " + str(repos))
