@@ -7,7 +7,7 @@ This repository contains a collection of various utility scripts designed for di
 - [AI Translate](#ai-translate)
 - [Gemini Chat](#gemini-chat)
 - [Git Projects Automation](#git-projects-automation)
-- [Video Bitrate Analyzer](#video-bitrate-analyzer)
+- [Video Metadata Analyzer](#video-metadata-analyzer)
 
 ## AI Translate
 
@@ -27,12 +27,12 @@ This script (`git_projects.py`) is a Python-based tool for executing Git command
 
 For more details, see the [Git Projects Automation README](Git-Projects/README.md).
 
-## Video Bitrate Analyzer
+## Video Metadata Analyzer
 
-This script (`video_analyzer.py`) is a Python-based tool for analyzing video files within a specified folder and its subfolders, calculating their bitrates, and presenting them in a sorted list.
+This script (`video_analyzer.py`) is a Python-based tool for analyzing video files within a specified folder and its subfolders, and presenting them in a sorted list based on metadata elements like bitrate, file size, and duration.
 
-For more details, see the [Video Bitrate Analyzer README](VideoBitrateAnalyzer/README.md).
+For more details, see the [Video Metadata Analyzer README](VideoMetadataAnalyzer/README.md).
 
 ---
 
-More scripts will be added to this repository in the future.
+More scripts are added to this repository from time to time.

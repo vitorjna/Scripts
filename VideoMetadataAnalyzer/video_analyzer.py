@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import argparse
 
 def get_video_info(file_path):
     """
@@ -55,8 +56,6 @@ def analyze_videos_in_folder(folder_path):
                         'bitrate_bps': bitrate_bps
                     })
 
-    # Sort by bitrate in descending order
-    video_files_data.sort(key=lambda x: x['bitrate_bps'], reverse=True)
     return video_files_data
 
 def format_bitrate(bitrate_bps):
@@ -83,26 +82,34 @@ def format_size(size_bytes):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print("Usage: python video_analyzer.py <folder_path> [output_limit]")
-        print("  <folder_path>: Path to the folder containing video files.")
-        print("  [output_limit]: Optional. A number to limit the output lines printed.")
-        print("Example: python video_analyzer.py C:\\Users\\YourUser\\Videos 10")
-        print("\nNote: This script requires 'ffprobe' to be installed and accessible in your system's PATH.")
-        print("      You can download FFmpeg (which includes ffprobe) from https://ffmpeg.org/download.html")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Analyze video files in a folder and sort them by various criteria.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument(
+        "folder_path",
+        help="Path to the folder containing video files."
+    )
+    parser.add_argument(
+        "-l", "--limit",
+        type=int,
+        help="Optional. A number to limit the output lines printed."
+    )
+    parser.add_argument(
+        "-s", "--sort",
+        choices=['bitrate', 'filesize', 'duration'],
+        default='bitrate',
+        help="""Optional. Sort order for video files.
+        'bitrate': Sort by bitrate (highest to lowest, default).
+        'filesize': Sort by file size (highest to lowest).
+        'duration': Sort by duration (longest to shortest)."""
+    )
 
-    target_folder = sys.argv[1]
-    output_limit = None
-    if len(sys.argv) == 3:
-        try:
-            output_limit = int(sys.argv[2])
-            if output_limit <= 0:
-                print("Error: output_limit must be a positive integer.")
-                sys.exit(1)
-        except ValueError:
-            print("Error: output_limit must be a valid number.")
-            sys.exit(1)
+    args = parser.parse_args()
+
+    target_folder = args.folder_path
+    output_limit = args.limit
+    sort_by = args.sort
 
     if not os.path.isdir(target_folder):
         print(f"Error: Folder '{target_folder}' not found.")
@@ -112,7 +119,17 @@ if __name__ == "__main__":
     video_data = analyze_videos_in_folder(target_folder)
 
     if video_data:
-        print("Video files by bitrate (highest to lowest):")
+        # Apply sorting based on user's choice
+        if sort_by == 'bitrate':
+            video_data.sort(key=lambda x: x['bitrate_bps'], reverse=True)
+            print("Video files by bitrate (highest to lowest):")
+        elif sort_by == 'filesize':
+            video_data.sort(key=lambda x: x['file_size'], reverse=True)
+            print("Video files by file size (highest to lowest):")
+        elif sort_by == 'duration':
+            video_data.sort(key=lambda x: x['duration'], reverse=True)
+            print("Video files by duration (longest to shortest):")
+
         print("-" * 80)
         max_index_width = len(str(len(video_data)))
 
