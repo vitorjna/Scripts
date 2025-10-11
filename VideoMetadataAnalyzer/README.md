@@ -9,6 +9,7 @@ This script (`video_analyzer.py`) is a Python-based tool for analyzing video fil
     *   `bitrate`: From highest to lowest (default).
     *   `filesize`: From largest to smallest.
     *   `duration`: From longest to shortest.
+*   **Open file after listing**: Possibility of inputting a number from the displayed list to open the respective file.
 *   **Recursive Scanning**: Automatically scans the specified folder and all its subdirectories for video files.
 *   **Wide Format Support**: Recognizes a broad range of video file extensions, including `.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.flv`, and `.webm`.
 *   **User-Friendly Display**:
@@ -44,6 +45,7 @@ This script (`video_analyzer.py`) is a Python-based tool for analyzing video fil
         *   `bitrate`: Sort by bitrate (highest to lowest, default).
         *   `filesize`: Sort by file size (highest to lowest).
         *   `duration`: Sort by duration (longest to shortest).
+    *   `-o ORDER_BY`, `--order ORDER_BY`: Optional. Display the list in ascending `asc` or descending `desc` (default) order.
 
     **Example**:
     ```bash

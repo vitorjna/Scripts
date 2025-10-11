@@ -104,12 +104,21 @@ if __name__ == "__main__":
         'filesize': Sort by file size (highest to lowest).
         'duration': Sort by duration (longest to shortest)."""
     )
+    parser.add_argument(
+        "-o", "--order",
+        choices=['asc', 'desc'],
+        default='desc',
+        help="""Optional. Sort in ascending or descending order.
+        'asc': Ascending order.
+        'desc': Descending order (default)."""
+    )
 
     args = parser.parse_args()
 
     target_folder = args.folder_path
     output_limit = args.limit
     sort_by = args.sort
+    sort_order = args.order
 
     if not os.path.isdir(target_folder):
         print(f"Error: Folder '{target_folder}' not found.")
@@ -120,15 +129,16 @@ if __name__ == "__main__":
 
     if video_data:
         # Apply sorting based on user's choice
+        reverse_order = sort_order == 'desc'
         if sort_by == 'bitrate':
-            video_data.sort(key=lambda x: x['bitrate_bps'], reverse=True)
-            print("Video files by bitrate (highest to lowest):")
+            video_data.sort(key=lambda x: x['bitrate_bps'], reverse=reverse_order)
+            print(f"Video files by bitrate ({'highest to lowest' if reverse_order else 'lowest to highest'}):")
         elif sort_by == 'filesize':
-            video_data.sort(key=lambda x: x['file_size'], reverse=True)
-            print("Video files by file size (highest to lowest):")
+            video_data.sort(key=lambda x: x['file_size'], reverse=reverse_order)
+            print(f"Video files by file size ({'highest to lowest' if reverse_order else 'lowest to highest'}):")
         elif sort_by == 'duration':
-            video_data.sort(key=lambda x: x['duration'], reverse=True)
-            print("Video files by duration (longest to shortest):")
+            video_data.sort(key=lambda x: x['duration'], reverse=reverse_order)
+            print(f"Video files by duration ({'longest to shortest' if reverse_order else 'shortest to longest'}):")
 
         print("-" * 80)
         max_index_width = len(str(len(video_data)))
@@ -141,6 +151,38 @@ if __name__ == "__main__":
                   f"Duration: {video['duration']:>10.2f}s | "
                   f"Path: {os.path.basename(video['path'])}")
         print("-" * 80)
+
+        # Ask to open a file
+        try:
+            # Limit the prompt range if output_limit is set
+            prompt_range = len(video_data)
+            if output_limit is not None and output_limit < prompt_range:
+                prompt_range = output_limit
+
+            choice_str = input(f"\nEnter the number of a video to open (1-{prompt_range}), or press Enter to skip: ").strip()
+            if choice_str:
+                choice_index = int(choice_str) - 1
+                if 0 <= choice_index < prompt_range:
+                    video_to_open = video_data[choice_index]['path']
+                    print(f"Attempting to open: {video_to_open}")
+
+                    try:
+                        if sys.platform == "win32":
+                            os.startfile(os.path.realpath(video_to_open))
+                        elif sys.platform == "darwin":
+                            subprocess.run(['open', video_to_open], check=True)
+                        else:
+                            subprocess.run(['xdg-open', video_to_open], check=True)
+                    except FileNotFoundError:
+                        print(f"Error: Could not find the file '{video_to_open}'.")
+                    except Exception as e:
+                        print(f"Error opening file: {e}")
+                else:
+                    print("Invalid number.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     else:
         print("No video files found or processed in the specified folder.")
