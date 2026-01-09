@@ -8,8 +8,9 @@ This repository contains a collection of various utility scripts designed for di
 - [Gemini Chat](#gemini-chat)
 - [Git Projects Automation](#git-projects-automation)
 - [Video Metadata Analyzer](#video-metadata-analyzer)
+- [WebSocket Client and Server](#websocket-client-and-server)
 
-## AI Translate
+ ## AI Translate
 
 This script (`translate.py`) is a Python-based tool for automated text translation, leveraging external APIs.
 
@@ -32,6 +33,12 @@ For more details, see the [Git Projects Automation README](Git-Projects/README.m
 This script (`video_analyzer.py`) is a Python-based tool for analyzing video files within a specified folder and its subfolders, and presenting them in a sorted list based on metadata elements like bitrate, file size, and duration.
 
 For more details, see the [Video Metadata Analyzer README](VideoMetadataAnalyzer/README.md).
+
+## WebSocket Client and Server
+
+These scripts provide a simple way to interact with WebSocket servers and run a basic echo server for testing and development purposes.
+
+For more details, see the [WebSocket README](WebSocket/README.md).
 
 ---
 
