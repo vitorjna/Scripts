@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 from enum import IntEnum, Enum
 
-from projects_config import PROJECTS, PATH_TORTOISE, USE_TORTOISE
+from projects_config import PROJECTS, PATH_TORTOISE, GIT_TOOL
 
 class ExtendedEnum(Enum):
     @classmethod
@@ -47,42 +47,43 @@ if __name__ == "__main__":
 
     while True:
         project_name = input(f"Select a Project: {', '.join(PROJECTS.keys())}: ").upper()
-        
+
         if project_name == 'Q':
-            os.system('pause')
-            exit()
-            
+            break
+
         if project_name not in PROJECTS:
             print("Invalid project selected.")
-        else:
-            break
-
-    reposLocation, repos = PROJECTS[project_name]
-    print("Selected repos: " + str(repos))
-
-    tool_to_use = Tools.TORT if USE_TORTOISE else Tools.GIT
-
-    while True:
-        command_name = input(f"Select a Command: {Commands._member_names_}: ").upper()
-        if command_name == 'Q':
-            break
-
-        if command_name not in Commands._member_names_:
-            print("Invalid command selected.")
             continue
 
-        command_action = getCommandForTool(Commands[command_name], tool_to_use)
-        print("Selected command: " + command_action)
+        reposLocation, repos = PROJECTS[project_name]
+        print("Selected repos: " + str(repos))
 
-        for repo in repos:
-            full_repo_path = Path(reposLocation) / repo
-            if tool_to_use == Tools.TORT:
-                cmd = f'"{PATH_TORTOISE}" /path:"{full_repo_path}" /command:{command_action}'
-            else:
-                cmd = f'git -C "{full_repo_path}" {command_action}'
+        tool_to_use = Tools(GIT_TOOL)
 
-            print(f'Running: {cmd}')
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+        while True:
+            command_name = input(f"Select a Command: {Commands._member_names_}, BACK: ").upper()
+            if command_name == 'Q':
+                os.system('pause')
+                exit()
 
+            if command_name == 'BACK':
+                break
+
+            if command_name not in Commands._member_names_:
+                print("Invalid command selected.")
+                continue
+
+            command_action = getCommandForTool(Commands[command_name], tool_to_use)
+            print("Selected command: " + command_action)
+
+            for repo in repos:
+                full_repo_path = Path(reposLocation) / repo
+                if tool_to_use == Tools.TORT:
+                    cmd = f'"{PATH_TORTOISE}" /path:"{full_repo_path}" /command:{command_action}'
+                else:
+                    cmd = f'git -C "{full_repo_path}" {command_action}'
+
+                print(f'Running: {cmd}')
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
 
     os.system('pause')

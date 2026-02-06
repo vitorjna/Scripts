@@ -11,8 +11,8 @@ PATH_JAVA = r'C:\path\to\your\java\repos'
 PATH_WINMERGE = r'C:\Program Files\WinMerge\WinMergeU.exe'
 PATH_TORTOISE = r'c:\Program Files\TortoiseGit\bin\TortoiseGitProc.exe'
 
-# Use TortoiseGit (True) or Git CLI (False)
-USE_TORTOISE = True
+# Git tool to use: "tortoise" or "git"
+GIT_TOOL = "tortoise"
 
 # Project definitions: { "PROJECT_NAME": (base_path, {"repo1", "repo2", ...}) }
 # IMPORTANT: Define your projects and their corresponding repositories here
