@@ -32,8 +32,8 @@ This script (`git_projects.py`) is a Python-based tool for executing Git command
         -   `PATH_CPP`: Base path for your C++ related repositories.
         -   `PATH_JAVA`: Base path for your Java related repositories.
         -   `PATH_WINMERGE`: Path to your WinMerge executable (if used).
-        -   `PATH_TORTOISE`: Path to your TortoiseGitProc.exe executable.
-        -   `USE_TORTOISE`: Set to `True` to use TortoiseGit commands, `False` to use standard Git CLI commands.
+        -   `PATH_TORTOISE`: Path to your `TortoiseGitProc.exe` executable.
+        -   `GIT_TOOL`: The tool to use for Git operations. Set to `"tortoise"` to use TortoiseGit commands, or `"git"` to use standard Git CLI commands.
         -   `PROJECTS`: A dictionary where the keys are your project names and the values are tuples containing the base path and a set of repository names within that path.
 
         Example `projects_config.py` content:
@@ -49,8 +49,8 @@ This script (`git_projects.py`) is a Python-based tool for executing Git command
         PATH_WINMERGE = r'C:\Program Files\WinMerge\WinMergeU.exe'
         PATH_TORTOISE = r'c:\Program Files\TortoiseGit\bin\TortoiseGitProc.exe'
 
-        # Use TortoiseGit (True) or Git CLI (False)
-        USE_TORTOISE = True
+        # Git tool to use: "tortoise" or "git"
+        GIT_TOOL = "tortoise"
 
         # Project definitions: { "PROJECT_NAME": (base_path, {"repo1", "repo2", ...}) }
         PROJECTS = {
@@ -67,7 +67,9 @@ This script (`git_projects.py`) is a Python-based tool for executing Git command
 
     The script will prompt you to:
     -   Select a project from the defined list.
-    -   Select a Git command to execute (e.g., PULL, PUSH, STATUS, CHECKOUT, LOG, POP).
+    -   Select a Git command to execute.
+        -   **Supported Git Commands**: `CHECKOUT`, `COMMIT`, `LOG`, `POP`, `PULL`, `PUSH`, `STATUS`.
+        -   **Other Commands**: `CMD` (runs a custom command), `OPEN` (opens the first repository in Explorer), `BACK` (goes back to the project selection list).
     -   The selected command will then be executed on all repositories associated with the chosen project.
 
 ## Project Structure
