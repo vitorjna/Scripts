@@ -47,4 +47,4 @@ These scripts provide a simple way to interact with WebSocket servers and run a 
 
 -   `websocket_client.py`: The client-side script for connecting and sending messages.
 -   `websocket_server.py`: The server-side script for receiving and echoing messages.
--   `requirements.txt`: Lists the necessary Python packages (`websocket-client`, `websockets`).
+-   `requirements.txt`: Lists the necessary Python packages (`websockets`, `cryptography`).

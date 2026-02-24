@@ -1,68 +1,83 @@
+import asyncio
+import websockets
 import logging
-import threading
-import time
-import websocket
-import ssl
 import argparse
+import ssl
+import sys
 
-keep_running = True
+async def handle_connection(websocket):
+    """
+    Handles the connection by running both send and receive loops.
+    Returns True if the user requested to quit, False otherwise.
+    """
+    logging.info(f"Connected to {websocket.remote_address}")
+    user_quit = False
 
-def on_message(ws, message):
-    logging.info(f"Received from server: {message}")
-
-
-def on_error(ws, error):
-    logging.error(f"WebSocket error: {error}")
-
-
-def on_close(ws, close_status_code, close_msg):
-    logging.info(f"Connection closed: {close_status_code} - {close_msg}")
-
-
-def send_messages_client(ws):
-    global keep_running
-    while keep_running:
-        try:
-            msg = input("> ")
-            if msg.lower() == 'quit':
-                keep_running = False
-                ws.close()
-                break
-            ws.send(msg)
-        except (EOFError, KeyboardInterrupt):
-            ws.close()
-            break
-        except Exception as e:
-            logging.error(f"Error sending message: {e}")
-            break
-
-
-def on_open(ws):
-    logging.info("Connection opened")
-    threading.Thread(target=send_messages_client, args=(ws,), daemon=True).start()
-
-
-def run_client(url):
-    logging.info(f"Connecting to {url}")
-    protocol = "wss" if url.startswith("wss://") else "ws"
-
-    try:
-        while keep_running:
+    async def send_loop():
+        nonlocal user_quit
+        while True:
             try:
-                ws = websocket.WebSocketApp(url,
-                                            on_message=on_message,
-                                            on_error=on_error,
-                                            on_close=on_close,
-                                            on_open=on_open)
-
-                sslopt = {"cert_reqs": ssl.CERT_NONE, "check_hostname": False} if protocol == "wss" else None
-                ws.run_forever(ping_interval=10, ping_timeout=2, sslopt=sslopt)
-
+                # Use run_in_executor to avoid blocking the event loop with input()
+                # Use sys.stdin.readline for more robust input handling in threads
+                line = await asyncio.get_event_loop().run_in_executor(None, lambda: sys.stdin.readline())
+                if not line:
+                    break
+                message = line.strip()
+                if message.lower() == 'quit':
+                    user_quit = True
+                    await websocket.close()
+                    break
+                if message:
+                    await websocket.send(message)
             except Exception as e:
-                logging.error(f"Connection failed, retrying in 5s: {e}")
-                time.sleep(5)
-    except KeyboardInterrupt:
-        logging.info("Client stopped.")
+                logging.error(f"Error sending message: {e}")
+                break
+
+    async def recv_loop():
+        try:
+            async for message in websocket:
+                logging.info(f"Received from server: {message}")
+        except websockets.exceptions.ConnectionClosed:
+            logging.info("Connection closed by server")
+        except Exception as e:
+            logging.error(f"Error receiving message: {e}")
+
+    # Run both loops concurrently
+    done, pending = await asyncio.wait(
+        [
+            asyncio.create_task(send_loop()),
+            asyncio.create_task(recv_loop()),
+        ],
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+
+    # Cancel the remaining task
+    for task in pending:
+        task.cancel()
+
+    return user_quit
+
+
+async def run_client(url):
+    ssl_context = None
+    if url.startswith("wss://"):
+        # Simple SSL context to match server's style (ignoring verification for flexibility)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+    while True:
+        try:
+            logging.info(f"Connecting to {url}")
+            async with websockets.connect(url, ssl=ssl_context) as websocket:
+                if await handle_connection(websocket):
+                    logging.info("Exiting as requested by user.")
+                    break
+        except Exception as e:
+            logging.error(f"Connection failed or lost: {e}")
+
+        logging.info("Retrying in 5 seconds...")
+        await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
@@ -73,4 +88,8 @@ if __name__ == "__main__":
                         help="WebSocket URL (e.g., ws://127.0.0.1:1230 or wss://...)")
 
     args = parser.parse_args()
-    run_client(args.url)
+
+    try:
+        asyncio.run(run_client(args.url))
+    except KeyboardInterrupt:
+        logging.info("Client stopped.")
