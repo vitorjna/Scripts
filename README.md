@@ -7,6 +7,8 @@ This repository contains a collection of various utility scripts designed for di
 - [AI Translate](#ai-translate)
 - [Gemini Chat](#gemini-chat)
 - [Git Projects Automation](#git-projects-automation)
+- [M4B Splitter](#m4b-splitter)
+- [SVG to PNG Converter](#svg-to-png-converter)
 - [Video Metadata Analyzer](#video-metadata-analyzer)
 - [WebSocket Client and Server](#websocket-client-and-server)
 
@@ -27,6 +29,18 @@ For more details, see the [Gemini Chat Script README](Gemini-Chat/README.md).
 This script (`git_projects.py`) is a Python-based tool for executing Git commands across multiple local repositories associated with specific projects.
 
 For more details, see the [Git Projects Automation README](Git-Projects/README.md).
+
+## M4B Splitter
+
+This script (`split_m4b_chapters.py`) is a Python-based tool to split an M4B audiobook file into individual M4A files, one for each chapter, using `ffmpeg`.
+
+For more details, see the [M4B Splitter README](m4b-splitter/README.md).
+
+## SVG to PNG Converter
+
+This script (`svg_to_png.py`) is a Python-based tool for converting SVG files into PNG format with customizable resolution and drag-and-drop support.
+
+For more details, see the [SVG to PNG Converter README](SVG-to-PNG/README.md).
 
 ## Video Metadata Analyzer
 
