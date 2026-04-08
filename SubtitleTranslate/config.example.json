@@ -1,9 +1,8 @@
 {
   "llm_provider": "cloud",
   "local": {
-    "base_url": "http://localhost:1234/v1",
-    "api_key": "lm-studio",
-    "model_name": "google_gemma-4-12b-it"
+    "base_url": "http://127.0.0.1:1234/v1/",
+    "model_name": "gemma-4-e4b-it"
   },
   "cloud": {
     "api_key": "YOUR_GOOGLE_AI_STUDIO_API_KEY",
@@ -12,6 +11,8 @@
   },
   "translation": {
     "target_language": "Portuguese from Portugal (pt-PT)",
+    "output_suffix": " PT",
     "system_instruction": "You are a professional subtitle translator specializing in pt-PT. You translate accurately while keeping the original meaning and timing constraints."
-  }
+  },
+  "watch_folder": "./subs"
 }

@@ -1,4 +1,4 @@
-# M4B Splitter
+# Split M4B
 
 A simple tool to split an M4B audiobook file into individual M4A files, one for each chapter, using `ffmpeg`.
 

@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import argparse
+import shutil
 from openai import OpenAI
 
 # Configure logging
@@ -101,7 +102,7 @@ except Exception as e:
     exit(1)
 
 
-def translate_llm(text: str, prev_text: str = "", next_text: str = "") -> str:
+def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: str = "") -> str:
     """Call the configured LLM to translate *text*.
 
     Retries up to 3 times. On each attempt, validates that the returned
@@ -114,7 +115,6 @@ def translate_llm(text: str, prev_text: str = "", next_text: str = "") -> str:
     if not text.strip():
         return ""
 
-    target_lang = CONFIG.get("translation", {}).get("target_language", "Portuguese from Portugal (pt-PT)")
     system_instr = CONFIG.get("translation", {}).get("system_instruction", "You are a professional subtitle translator.")
 
     expected_line_count = len(text.splitlines())
@@ -220,7 +220,7 @@ def extract_text(block_str: str) -> str:
     return "\n\n".join(texts).strip()
 
 
-def process_block(block: str, prev_block: str = "", next_block: str = "") -> str:
+def process_block(block: str, target_lang: str, prev_block: str = "", next_block: str = "") -> str:
     lines = block.split('\n')
     if len(lines) >= 3:
         block_num = lines[0].strip()
@@ -234,21 +234,16 @@ def process_block(block: str, prev_block: str = "", next_block: str = "") -> str
         prev_text = extract_text(prev_block)
         next_text = extract_text(next_block)
 
-        translated_text = translate_llm(text_lines, prev_text, next_text)
+        translated_text = translate_llm(text_lines, target_lang, prev_text, next_text)
         return f"{block_num}\n{timestamp}\n{translated_text}"
     else:
         return block
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Translate SRT subtitles using an LLM (local or cloud).")
-    parser.add_argument("srt_file", help="Path to the .srt file to translate.")
-    args = parser.parse_args()
-
-    srt_path = args.srt_file
+def translate_file(srt_path: str, target_lang: str, output_suffix: str) -> bool:
     if not os.path.exists(srt_path):
         logging.error(f"File not found: {srt_path}")
-        return
+        return False
 
     logging.info(f"Reading subtitle file: {srt_path}")
     try:
@@ -267,7 +262,7 @@ def main():
     blocks = [b for b in blocks if b.strip()]
     logging.info(f"Total blocks found: {len(blocks)}")
 
-    output_path = srt_path.replace(".srt", "_llm_translated.srt")
+    output_path = srt_path.replace(".srt", f"{output_suffix}.srt")
     start_index: int = 0
 
     if os.path.exists(output_path):
@@ -282,9 +277,15 @@ def main():
         if existing_content and len(existing_content) > 5:
             already_translated_list = [b for b in existing_content.split('\n\n') if b.strip()]
             start_index = len(already_translated_list)
+            # Ensure we don't start out of bounds bounds if output has more blocks for some reason
+            start_index = min(start_index, len(blocks))
             logging.info(f"Found {start_index} already translated blocks. Resuming from block {start_index + 1}.")
     else:
         logging.info(f"No existing output file found at {output_path}.")
+
+    if start_index >= len(blocks):
+        logging.info(f"All blocks in {srt_path} are already translated.")
+        return True
 
     logging.info(f"Preparing blocks to process (starting from index {start_index})...")
     blocks_to_process = [b for i, b in enumerate(blocks) if i >= start_index]
@@ -293,7 +294,7 @@ def main():
 
     try:
         with open(output_path, mode, encoding='utf-8', newline='') as f:
-            logging.info(f"Output file opened successfully.")
+            logging.info("Output file opened successfully.")
             if blocks_to_process:
                 for actual_index, block in enumerate(blocks_to_process, start=start_index):
                     # Get 2 preceding and 2 following blocks for context
@@ -301,18 +302,97 @@ def main():
                     next_block = "\n\n".join(blocks[actual_index + 1:actual_index + 3]) if actual_index < len(blocks) - 1 else ""
 
                     logging.info(f"Translating block {actual_index + 1}/{len(blocks)}...")
-                    result = process_block(block, prev_block, next_block)
+                    result = process_block(block, target_lang, prev_block, next_block)
                     f.write(result + "\n\n")
                     f.flush()
                     logging.info(f"Processed block {actual_index + 1}/{len(blocks)}")
 
         logging.info(f"Translation complete! Saved to {output_path}")
+        return True
 
     except KeyboardInterrupt:
-        logging.info("\nTranslation interrupted by user. Closing file and exiting...")
+        logging.info("\nTranslation interrupted by user.")
+        raise
     except Exception as e:
         logging.error(f"An unexpected error occurred during processing: {e}")
+        return False
 
+
+def watch_directory(folder: str, target_lang: str, output_suffix: str):
+    if not os.path.exists(folder) or not os.path.isdir(folder):
+        logging.error(f"Watch directory does not exist or is not a folder: {folder}")
+        return
+
+    processed_folder = os.path.join(folder, "processed")
+    os.makedirs(processed_folder, exist_ok=True)
+
+    logging.info(f"Watching folder '{folder}' for new .srt files (excluding '*{output_suffix}.srt')...")
+    logging.info(f"Successfully processed files will be moved to '{processed_folder}'.")
+    logging.info("Press Ctrl+C to stop.")
+
+    processed_files = {}  # Map path -> mtime
+    try:
+        while True:
+            for filename in os.listdir(folder):
+                srt_path = os.path.join(folder, filename)
+                if not os.path.isfile(srt_path):
+                    continue
+
+                if filename.lower().endswith(".srt") and not filename.lower().endswith(f"{output_suffix.lower()}.srt"):
+                    try:
+                        mtime = os.path.getmtime(srt_path)
+                    except OSError:
+                        continue  # File might have been removed
+
+                    if processed_files.get(srt_path) == mtime:
+                        continue  # Already fully translated this version
+
+                    # Found a file that is new or modified
+                    logging.info(f"\n--- Processing new or modified file: {filename} ---")
+                    try:
+                        success = translate_file(srt_path, target_lang, output_suffix)
+                        if success:
+                            processed_files[srt_path] = mtime
+                            dest_path = os.path.join(processed_folder, filename)
+                            if os.path.exists(dest_path):
+                                os.remove(dest_path)
+                            shutil.move(srt_path, dest_path)
+                            logging.info(f"Moved '{filename}' to processed folder.")
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as e:
+                        logging.error(f"Failed to process {srt_path}: {e}")
+
+            time.sleep(5)
+    except KeyboardInterrupt:
+        logging.info("\nStopped watching folder.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Translate SRT subtitles using an LLM (local or cloud).")
+    parser.add_argument("srt_file", nargs='?', help="Path to the .srt file to translate. If omitted, watches folder defined in config.")
+    parser.add_argument("--target-lang", help="Target language (overrides config).")
+    args = parser.parse_args()
+
+    # Determine target language and exit if not found
+    target_lang = args.target_lang or CONFIG.get("translation", {}).get("target_language")
+    if not target_lang:
+        logging.error("Target language NOT defined. Please specify 'target_language' in 'config.json' or use '--target-lang'.")
+        exit(1)
+
+    output_suffix = CONFIG.get("translation", {}).get("output_suffix", "_llm_translated")
+
+    if args.srt_file:
+        try:
+            translate_file(args.srt_file, target_lang, output_suffix)
+        except KeyboardInterrupt:
+            logging.info("\nClosing and exiting...")
+    else:
+        watch_folder = CONFIG.get("watch_folder")
+        if not watch_folder:
+            logging.error("No input file provided and 'watch_folder' is not set in config.json.")
+            exit(1)
+        watch_directory(watch_folder, target_lang, output_suffix)
 
 if __name__ == "__main__":
     main()
