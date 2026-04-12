@@ -29,11 +29,14 @@ _CONTEXT_MARKERS = [
 _USER_PROMPT_TEMPLATE = f"""Translate the subtitle block below from English to {{target_lang}}.
 STRICT RULES:
 - Your response must contain ONLY the translated lines of the '{_SECTION_TEXT.replace('-', '').strip()}' block.
-- Consider the context of the original text to provide a better translation.
+- Consider the context provided to make a better translation.
 - Do NOT output anything from the 'CONTEXT' sections.
 - Do NOT add any preamble, explanation, labels, or quotes.
 - Preserve the exact number of line breaks present in the original text.
-- The original text has {{expected_line_count}} line(s); your translation must also have exactly {{expected_line_count}} line(s).
+- Your translation MUST have EXACTLY the expected number of lines specified below.
+- Handle special cases: if the original text contains misspellings, plays on words, slang, or other linguistic nuances, reflect a similar misspelling, equivalent wordplay, or corresponding style in the translation.
+
+EXPECTED LINE COUNT: {{expected_line_count}}
 
 {{prev_section}}{_SECTION_TEXT}
 {{text}}
@@ -167,6 +170,10 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
             if extra_body is not None:
                 kwargs["extra_body"] = extra_body
 
+            logging.info(f"Sending request to LLM with model: {_MODEL_NAME}")
+            logging.info(f"Messages: {messages}")
+            logging.info(f"Extra body: {extra_body}")
+
             response = _CLIENT.chat.completions.create(**kwargs)
 
             raw = response.choices[0].message.content
@@ -209,37 +216,6 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
     return text
 
 
-def extract_text(block_str: str) -> str:
-    if not block_str:
-        return ""
-    texts = []
-    for b in block_str.split('\n\n'):
-        lines = b.split('\n')
-        if len(lines) >= 3:
-            texts.append("\n".join([line for i, line in enumerate(lines) if i >= 2]).strip())
-    return "\n\n".join(texts).strip()
-
-
-def process_block(block: str, target_lang: str, prev_block: str = "", next_block: str = "") -> str:
-    lines = block.split('\n')
-    if len(lines) >= 3:
-        block_num = lines[0].strip()
-        timestamp = lines[1].strip()
-        text_lines = "\n".join(lines[2:]).strip()
-
-        if not text_lines:
-            # Empty text body — nothing to translate
-            return block
-
-        prev_text = extract_text(prev_block)
-        next_text = extract_text(next_block)
-
-        translated_text = translate_llm(text_lines, target_lang, prev_text, next_text)
-        return f"{block_num}\n{timestamp}\n{translated_text}"
-    else:
-        return block
-
-
 def translate_file(srt_path: str, target_lang: str, output_suffix: str) -> bool:
     if not os.path.exists(srt_path):
         logging.error(f"File not found: {srt_path}")
@@ -262,6 +238,26 @@ def translate_file(srt_path: str, target_lang: str, output_suffix: str) -> bool:
     blocks = [b for b in blocks if b.strip()]
     logging.info(f"Total blocks found: {len(blocks)}")
 
+    parsed_blocks = []
+    for b in blocks:
+        lines = b.split('\n')
+        if len(lines) >= 3:
+            parsed_blocks.append({
+                "block_num": lines[0].strip(),
+                "timestamp": lines[1].strip(),
+                "original_text": "\n".join(lines[2:]).strip(),
+                "translated_text": None,
+                "raw": b
+            })
+        else:
+            parsed_blocks.append({
+                "block_num": "",
+                "timestamp": "",
+                "original_text": "",
+                "translated_text": None,
+                "raw": b
+            })
+
     output_path = srt_path.replace(".srt", f"{output_suffix}.srt")
     start_index: int = 0
 
@@ -278,34 +274,64 @@ def translate_file(srt_path: str, target_lang: str, output_suffix: str) -> bool:
             already_translated_list = [b for b in existing_content.split('\n\n') if b.strip()]
             start_index = len(already_translated_list)
             # Ensure we don't start out of bounds bounds if output has more blocks for some reason
-            start_index = min(start_index, len(blocks))
+            start_index = min(start_index, len(parsed_blocks))
             logging.info(f"Found {start_index} already translated blocks. Resuming from block {start_index + 1}.")
+
+            # Populate previously translated texts into the parsed container
+            for i in range(start_index):
+                lines = already_translated_list[i].split('\n')
+                if len(lines) >= 3:
+                    parsed_blocks[i]["translated_text"] = "\n".join(lines[2:]).strip()
+                else:
+                    parsed_blocks[i]["translated_text"] = parsed_blocks[i]["original_text"]
     else:
         logging.info(f"No existing output file found at {output_path}.")
 
-    if start_index >= len(blocks):
+    if start_index >= len(parsed_blocks):
         logging.info(f"All blocks in {srt_path} are already translated.")
         return True
 
     logging.info(f"Preparing blocks to process (starting from index {start_index})...")
-    blocks_to_process = [b for i, b in enumerate(blocks) if i >= start_index]
     mode = 'a' if start_index > 0 else 'w'
     logging.info(f"Opening output file in mode '{mode}'...")
 
     try:
         with open(output_path, mode, encoding='utf-8', newline='') as f:
             logging.info("Output file opened successfully.")
-            if blocks_to_process:
-                for actual_index, block in enumerate(blocks_to_process, start=start_index):
-                    # Get 2 preceding and 2 following blocks for context
-                    prev_block = "\n\n".join(blocks[max(0, actual_index - 2):actual_index]) if actual_index > 0 else ""
-                    next_block = "\n\n".join(blocks[actual_index + 1:actual_index + 3]) if actual_index < len(blocks) - 1 else ""
+            for actual_index in range(start_index, len(parsed_blocks)):
+                block_data = parsed_blocks[actual_index]
 
-                    logging.info(f"Translating block {actual_index + 1}/{len(blocks)}...")
-                    result = process_block(block, target_lang, prev_block, next_block)
-                    f.write(result + "\n\n")
+                if not block_data["original_text"]:
+                    f.write(block_data["raw"] + "\n\n")
                     f.flush()
-                    logging.info(f"Processed block {actual_index + 1}/{len(blocks)}")
+                    continue
+
+                # Get 2 preceding texts (translated text preferred for consistency)
+                prev_texts = []
+                for i in range(max(0, actual_index - 2), actual_index):
+                    txt = parsed_blocks[i].get("translated_text") or parsed_blocks[i].get("original_text") or ""
+                    if txt:
+                        prev_texts.append(txt)
+                prev_text = "\n\n".join(prev_texts)
+
+                # Get 2 following texts (original texts)
+                next_texts = []
+                for i in range(actual_index + 1, min(len(parsed_blocks), actual_index + 3)):
+                    txt = parsed_blocks[i].get("original_text") or ""
+                    if txt:
+                        next_texts.append(txt)
+                next_text = "\n\n".join(next_texts)
+
+                logging.info(f"Translating block {actual_index + 1}/{len(parsed_blocks)}...")
+                translated_text = translate_llm(block_data["original_text"], target_lang, prev_text, next_text)
+
+                # Store back translated text to be used as context for future blocks
+                parsed_blocks[actual_index]["translated_text"] = translated_text
+
+                result = f"{block_data['block_num']}\n{block_data['timestamp']}\n{translated_text}"
+                f.write(result + "\n\n")
+                f.flush()
+                logging.info(f"Processed block {actual_index + 1}/{len(parsed_blocks)}")
 
         logging.info(f"Translation complete! Saved to {output_path}")
         return True
