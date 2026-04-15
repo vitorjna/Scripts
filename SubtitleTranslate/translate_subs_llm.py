@@ -9,43 +9,42 @@ from openai import OpenAI
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Prompt block constants
-_SECTION_PREV_CONTEXT = "--- CONTEXT (preceding, do NOT translate) ---"
-_SECTION_NEXT_CONTEXT = "--- CONTEXT (following, do NOT translate) ---"
-_SECTION_END_CONTEXT = "--- END CONTEXT ---"
-_SECTION_TEXT = "--- TEXT TO TRANSLATE ---"
-_SECTION_END_TEXT = "--- END TEXT ---"
-_SECTION_TRANSLATION = "TRANSLATION (translated lines only):"
+# _USER_PROMPT_TEMPLATE = """Translate the subtitle block below from English to {target_lang}.
+# STRICT RULES:
+# - Your response must contain ONLY the translated lines of the 'lines_to_translate' array inside the JSON data.
+# - Consider the context provided in 'previous_context' and 'following_context' to make a better translation.
+# - Do NOT output anything from the context sections, nor any JSON structure.
+# - Do NOT add any preamble, explanation, labels, or quotes.
+# - Handle special cases: if the original text contains misspellings, plays on words, slang, or other linguistic nuances, reflect a similar misspelling, equivalent wordplay, or corresponding style in the translation.
+# - Pay attention to gendered words and try to guess and match the gender of the character saying each line. If possible, and if it doesn't affect the meaning, remove gendered words when there's too much ambiguity.
 
-_CONTEXT_MARKERS = [
-    _SECTION_PREV_CONTEXT,
-    _SECTION_NEXT_CONTEXT,
-    _SECTION_END_CONTEXT,
-    _SECTION_TEXT,
-    _SECTION_END_TEXT,
-    _SECTION_TRANSLATION,
-]
+# EXPECTED LINE COUNT: {expected_line_count}
 
-_USER_PROMPT_TEMPLATE = f"""Translate the subtitle block below from English to {{target_lang}}.
-STRICT RULES:
-- Your response must contain ONLY the translated lines of the '{_SECTION_TEXT.replace('-', '').strip()}' block.
-- Consider the context provided to make a better translation.
-- Do NOT output anything from the 'CONTEXT' sections.
-- Do NOT add any preamble, explanation, labels, or quotes.
-- Preserve the exact number of line breaks present in the original text.
-- Your translation MUST have EXACTLY the expected number of lines specified below.
-- Handle special cases: if the original text contains misspellings, plays on words, slang, or other linguistic nuances, reflect a similar misspelling, equivalent wordplay, or corresponding style in the translation.
+# {json_payload}"""
 
-EXPECTED LINE COUNT: {{expected_line_count}}
+_USER_PROMPT_TEMPLATE = """You are an expert audiovisual translator specializing in movie and television subtitles. Your task is to translate the specified subtitle lines from English into {target_lang}.
+### STRICT INSTRUCTIONS:
 
-{{prev_section}}{_SECTION_TEXT}
-{{text}}
-{_SECTION_END_TEXT}
+1. FORMATTING & OUTPUT:
+- Output ONLY the translated plain text of the `lines_to_translate` array.
+- DO NOT output JSON syntax, lists, quotes, labels, or conversational filler (e.g., "Here is the translation:").
+- PRESERVE EXACT LINES: Your response MUST contain the exact same number of lines and line breaks as the original `lines_to_translate` array. Do not merge or split subtitle lines.
 
-{{next_section}}{_SECTION_TRANSLATION}"""
+2. CONTEXT USAGE:
+- Read `previous_context` and `following_context` purely to understand the scene, tone, and continuity.
+- DO NOT translate or include any text from the context sections in your final output.
 
-_PREV_CONTEXT_TEMPLATE = f"{_SECTION_PREV_CONTEXT}\n{{content}}\n{_SECTION_END_CONTEXT}\n\n"
-_NEXT_CONTEXT_TEMPLATE = f"{_SECTION_NEXT_CONTEXT}\n{{content}}\n{_SECTION_END_CONTEXT}\n\n"
+3. LOCALIZATION & TONE:
+- Adapt slang, idioms, puns, and intentional misspellings into natural equivalents in {target_lang}.
+- Maintain the original tone, register, and character voice.
+
+4. GENDER & GRAMMAR:
+- Use the context to infer the correct grammatical gender for the speaker and the person being spoken to.
+- If the gender is ambiguous and cannot be guessed from the context, use gender-neutral phrasing in {target_lang} whenever possible, provided it sounds natural.
+
+### INPUT DATA:
+{json_payload}"""
+
 
 def load_config():
     """Load configuration from config.json, falling back to config.example.json if not present."""
@@ -72,9 +71,10 @@ except Exception as e:
 
 
 def _strip_context_leakage(translated: str) -> str:
-    """Remove any prompt delimiter lines the LLM may have echoed back."""
+    """Remove any empty lines or prompt delimiter lines the LLM may have echoed back."""
     lines = translated.splitlines()
-    cleaned = [line for line in lines if line.strip() not in _CONTEXT_MARKERS]
+    # Filter out empty lines
+    cleaned = [line for line in lines if line.strip()]
     return "\n".join(cleaned).strip()
 
 
@@ -120,17 +120,20 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
 
     system_instr = CONFIG.get("translation", {}).get("system_instruction", "You are a professional subtitle translator.")
 
-    expected_line_count = len(text.splitlines())
+    lines_to_translate = [l for l in text.splitlines() if l.strip()]
+    expected_line_count = len(lines_to_translate)
 
-    prev_section = _PREV_CONTEXT_TEMPLATE.format(content=prev_text) if prev_text else ""
-    next_section = _NEXT_CONTEXT_TEMPLATE.format(content=next_text) if next_text else ""
+    json_payload_data = {
+        "previous_context": [l for l in prev_text.splitlines() if l.strip()] if prev_text else [],
+        "lines_to_translate": lines_to_translate,
+        "following_context": [l for l in next_text.splitlines() if l.strip()] if next_text else []
+    }
+    json_payload = json.dumps(json_payload_data, indent=0, ensure_ascii=False)
 
     user_prompt = _USER_PROMPT_TEMPLATE.format(
         target_lang=target_lang,
         expected_line_count=expected_line_count,
-        prev_section=prev_section,
-        text=text,
-        next_section=next_section
+        json_payload=json_payload
     )
 
     if "gemma" in _MODEL_NAME.lower() or _PROVIDER != "local":
@@ -163,16 +166,14 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
             kwargs = {
                 "model": _MODEL_NAME,
                 "messages": messages,
+                "max_tokens": 2048,
                 "temperature": 0.1,
-                "max_tokens": 1024,
-                "top_p": 0.9,
+                "top_p": 0.95
             }
             if extra_body is not None:
                 kwargs["extra_body"] = extra_body
 
-            logging.info(f"Sending request to LLM with model: {_MODEL_NAME}")
-            logging.info(f"Messages: {messages}")
-            logging.info(f"Extra body: {extra_body}")
+            # logging.info(f"Messages: {messages}")
 
             response = _CLIENT.chat.completions.create(**kwargs)
 
@@ -221,127 +222,166 @@ def translate_file(srt_path: str, target_lang: str, output_suffix: str) -> bool:
         logging.error(f"File not found: {srt_path}")
         return False
 
-    logging.info(f"Reading subtitle file: {srt_path}")
+    # Setup file logging for this specific subtitle file
+    log_filename = f"log_{os.path.basename(srt_path)}"
+    log_path = os.path.join(os.path.dirname(os.path.abspath(srt_path)), log_filename)
+    file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(file_handler)
+
     try:
-        with open(srt_path, 'r', encoding='utf-8') as f:
-            text = f.read()
-    except UnicodeDecodeError:
-        logging.warning(f"UTF-8 decoding failed for {srt_path}. Retrying with latin-1...")
-        with open(srt_path, 'r', encoding='latin-1') as f:
-            text = f.read()
-
-    # Normalise line endings and strip a UTF-8 BOM if present
-    text = text.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n')
-
-    blocks = text.strip().split('\n\n')
-    # Filter out any completely blank/whitespace-only blocks that can appear in malformed SRTs
-    blocks = [b for b in blocks if b.strip()]
-    logging.info(f"Total blocks found: {len(blocks)}")
-
-    parsed_blocks = []
-    for b in blocks:
-        lines = b.split('\n')
-        if len(lines) >= 3:
-            parsed_blocks.append({
-                "block_num": lines[0].strip(),
-                "timestamp": lines[1].strip(),
-                "original_text": "\n".join(lines[2:]).strip(),
-                "translated_text": None,
-                "raw": b
-            })
-        else:
-            parsed_blocks.append({
-                "block_num": "",
-                "timestamp": "",
-                "original_text": "",
-                "translated_text": None,
-                "raw": b
-            })
-
-    output_path = srt_path.replace(".srt", f"{output_suffix}.srt")
-    start_index: int = 0
-
-    if os.path.exists(output_path):
-        logging.info(f"Checking for existing translations in {output_path}...")
+        logging.info(f"Reading subtitle file: {srt_path}")
         try:
-            with open(output_path, 'r', encoding='utf-8') as f:
-                existing_content = f.read().strip()
-        except Exception as e:
-            logging.warning(f"Failed to read existing content: {e}")
-            existing_content = ""
+            with open(srt_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            logging.warning(f"UTF-8 decoding failed for {srt_path}. Retrying with latin-1...")
+            with open(srt_path, 'r', encoding='latin-1') as f:
+                text = f.read()
 
-        if existing_content and len(existing_content) > 5:
-            already_translated_list = [b for b in existing_content.split('\n\n') if b.strip()]
-            start_index = len(already_translated_list)
-            # Ensure we don't start out of bounds bounds if output has more blocks for some reason
-            start_index = min(start_index, len(parsed_blocks))
-            logging.info(f"Found {start_index} already translated blocks. Resuming from block {start_index + 1}.")
+        # Normalise line endings and strip a UTF-8 BOM if present
+        text = text.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n')
 
-            # Populate previously translated texts into the parsed container
-            for i in range(start_index):
-                lines = already_translated_list[i].split('\n')
-                if len(lines) >= 3:
-                    parsed_blocks[i]["translated_text"] = "\n".join(lines[2:]).strip()
-                else:
-                    parsed_blocks[i]["translated_text"] = parsed_blocks[i]["original_text"]
-    else:
-        logging.info(f"No existing output file found at {output_path}.")
+        blocks = text.strip().split('\n\n')
+        # Filter out any completely blank/whitespace-only blocks that can appear in malformed SRTs
+        blocks = [b for b in blocks if b.strip()]
+        logging.info(f"Total blocks found: {len(blocks)}")
 
-    if start_index >= len(parsed_blocks):
-        logging.info(f"All blocks in {srt_path} are already translated.")
-        return True
+        parsed_blocks = []
+        for b in blocks:
+            lines = b.split('\n')
+            if len(lines) >= 3:
+                parsed_blocks.append({
+                    "block_num": lines[0].strip(),
+                    "timestamp": lines[1].strip(),
+                    "original_text": "\n".join(lines[2:]).strip(),
+                    "translated_text": None,
+                    "raw": b
+                })
+            else:
+                parsed_blocks.append({
+                    "block_num": "",
+                    "timestamp": "",
+                    "original_text": "",
+                    "translated_text": None,
+                    "raw": b
+                })
 
-    logging.info(f"Preparing blocks to process (starting from index {start_index})...")
-    mode = 'a' if start_index > 0 else 'w'
-    logging.info(f"Opening output file in mode '{mode}'...")
+        # Construct output filename: [name].[target_lang][.sdh].srt
+        # Logic: remove .eng, keep .sdh but place it after target_lang (output_suffix)
+        dirname = os.path.dirname(srt_path)
+        basename = os.path.basename(srt_path)
+        if basename.lower().endswith(".srt"):
+            basename = basename[:-4]
 
-    try:
-        with open(output_path, mode, encoding='utf-8', newline='') as f:
-            logging.info("Output file opened successfully.")
-            for actual_index in range(start_index, len(parsed_blocks)):
-                block_data = parsed_blocks[actual_index]
+        parts = basename.split('.')
+        new_parts = []
+        is_sdh = False
+        for p in parts:
+            if p.lower() == 'eng':
+                continue
+            if p.lower() == 'sdh':
+                is_sdh = True
+                continue
+            new_parts.append(p)
 
-                if not block_data["original_text"]:
-                    f.write(block_data["raw"] + "\n\n")
+        # Add the language identifier (strip leading dot from suffix if present)
+        new_parts.append(output_suffix.lstrip('.'))
+
+        if is_sdh:
+            new_parts.append('sdh')
+
+        output_filename = ".".join(new_parts) + ".srt"
+        output_path = os.path.join(dirname, output_filename)
+        start_index: int = 0
+
+        if os.path.exists(output_path):
+            logging.info(f"Checking for existing translations in {output_path}...")
+            try:
+                with open(output_path, 'r', encoding='utf-8') as f:
+                    existing_content = f.read().strip()
+            except Exception as e:
+                logging.warning(f"Failed to read existing content: {e}")
+                existing_content = ""
+
+            if existing_content and len(existing_content) > 5:
+                already_translated_list = [b for b in existing_content.split('\n\n') if b.strip()]
+                start_index = len(already_translated_list)
+                # Ensure we don't start out of bounds bounds if output has more blocks for some reason
+                start_index = min(start_index, len(parsed_blocks))
+                logging.info(f"Found {start_index} already translated blocks. Resuming from block {start_index + 1}.")
+
+                # Populate previously translated texts into the parsed container
+                for i in range(start_index):
+                    lines = already_translated_list[i].split('\n')
+                    if len(lines) >= 3:
+                        parsed_blocks[i]["translated_text"] = "\n".join(lines[2:]).strip()
+                    else:
+                        parsed_blocks[i]["translated_text"] = parsed_blocks[i]["original_text"]
+        else:
+            logging.info(f"No existing output file found at {output_path}.")
+
+        if start_index >= len(parsed_blocks):
+            logging.info(f"All blocks in {srt_path} are already translated.")
+            return True
+
+        logging.info(f"Preparing blocks to process (starting from index {start_index})...")
+        mode = 'a' if start_index > 0 else 'w'
+        logging.info(f"Opening output file in mode '{mode}'...")
+
+        try:
+            with open(output_path, mode, encoding='utf-8', newline='') as f:
+                logging.info("Output file opened successfully.")
+                for actual_index in range(start_index, len(parsed_blocks)):
+                    block_data = parsed_blocks[actual_index]
+
+                    if not block_data["original_text"]:
+                        f.write(block_data["raw"] + "\n\n")
+                        f.flush()
+                        continue
+
+                    context_prev_count = CONFIG.get("translation", {}).get("context_blocks_previous", 2)
+                    context_next_count = CONFIG.get("translation", {}).get("context_blocks_next", 2)
+
+                    # Get preceding texts (translated text preferred for consistency)
+                    prev_texts = []
+                    for i in range(max(0, actual_index - context_prev_count), actual_index):
+                        txt = (parsed_blocks[i].get("translated_text") or parsed_blocks[i].get("original_text") or "").strip()
+                        if txt:
+                            prev_texts.append(txt)
+                    prev_text = "\n\n".join(prev_texts)
+
+                    # Get following texts (original texts)
+                    next_texts = []
+                    for i in range(actual_index + 1, min(len(parsed_blocks), actual_index + 1 + context_next_count)):
+                        txt = (parsed_blocks[i].get("original_text") or "").strip()
+                        if txt:
+                            next_texts.append(txt)
+                    next_text = "\n\n".join(next_texts)
+
+                    logging.info(f"Translating block {actual_index + 1}/{len(parsed_blocks)}...")
+                    translated_text = translate_llm(block_data["original_text"], target_lang, prev_text, next_text)
+
+                    # Store back translated text to be used as context for future blocks
+                    parsed_blocks[actual_index]["translated_text"] = translated_text
+
+                    result = f"{block_data['block_num']}\n{block_data['timestamp']}\n{translated_text}"
+                    f.write(result + "\n\n")
                     f.flush()
-                    continue
+                    logging.info(f"Processed block {actual_index + 1}/{len(parsed_blocks)}")
 
-                # Get 2 preceding texts (translated text preferred for consistency)
-                prev_texts = []
-                for i in range(max(0, actual_index - 2), actual_index):
-                    txt = parsed_blocks[i].get("translated_text") or parsed_blocks[i].get("original_text") or ""
-                    if txt:
-                        prev_texts.append(txt)
-                prev_text = "\n\n".join(prev_texts)
+            logging.info(f"Translation complete! Saved to {output_path}")
+            return True
 
-                # Get 2 following texts (original texts)
-                next_texts = []
-                for i in range(actual_index + 1, min(len(parsed_blocks), actual_index + 3)):
-                    txt = parsed_blocks[i].get("original_text") or ""
-                    if txt:
-                        next_texts.append(txt)
-                next_text = "\n\n".join(next_texts)
-
-                logging.info(f"Translating block {actual_index + 1}/{len(parsed_blocks)}...")
-                translated_text = translate_llm(block_data["original_text"], target_lang, prev_text, next_text)
-
-                # Store back translated text to be used as context for future blocks
-                parsed_blocks[actual_index]["translated_text"] = translated_text
-
-                result = f"{block_data['block_num']}\n{block_data['timestamp']}\n{translated_text}"
-                f.write(result + "\n\n")
-                f.flush()
-                logging.info(f"Processed block {actual_index + 1}/{len(parsed_blocks)}")
-
-        logging.info(f"Translation complete! Saved to {output_path}")
-        return True
-
-    except KeyboardInterrupt:
-        logging.info("\nTranslation interrupted by user.")
-        raise
-    except Exception as e:
-        logging.error(f"An unexpected error occurred during processing: {e}")
-        return False
+        except KeyboardInterrupt:
+            logging.info("\nTranslation interrupted by user.")
+            raise
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during processing: {e}")
+            return False
+    finally:
+        logging.getLogger().removeHandler(file_handler)
+        file_handler.close()
 
 
 def watch_directory(folder: str, target_lang: str, output_suffix: str):
@@ -352,7 +392,7 @@ def watch_directory(folder: str, target_lang: str, output_suffix: str):
     processed_folder = os.path.join(folder, "processed")
     os.makedirs(processed_folder, exist_ok=True)
 
-    logging.info(f"Watching folder '{folder}' for new .srt files (excluding '*{output_suffix}.srt')...")
+    logging.info(f"Watching folder '{folder}' for new .srt files (skipping files with '{output_suffix}')...")
     logging.info(f"Successfully processed files will be moved to '{processed_folder}'.")
     logging.info("Press Ctrl+C to stop.")
 
@@ -364,7 +404,14 @@ def watch_directory(folder: str, target_lang: str, output_suffix: str):
                 if not os.path.isfile(srt_path):
                     continue
 
-                if filename.lower().endswith(".srt") and not filename.lower().endswith(f"{output_suffix.lower()}.srt"):
+                # Filter logic: skip logs, non-srt files, and files that already contain the output suffix.
+                is_srt = filename.lower().endswith(".srt")
+                is_log = filename.lower().startswith("log_")
+                clean_suffix = output_suffix.lower().lstrip('.')
+                # A file is considered already processed if it contains ".suffix." or ends with ".suffix.srt"
+                already_labeled = f".{clean_suffix}." in filename.lower() or filename.lower().endswith(f".{clean_suffix}.srt")
+
+                if is_srt and not is_log and not already_labeled:
                     try:
                         mtime = os.path.getmtime(srt_path)
                     except OSError:

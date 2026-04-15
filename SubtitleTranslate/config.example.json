@@ -1,5 +1,5 @@
 {
-  "llm_provider": "cloud",
+  "llm_provider": "local",
   "local": {
     "base_url": "http://127.0.0.1:1234/v1/",
     "model_name": "gemma-4-e4b-it"
@@ -10,9 +10,11 @@
     "model_name": "gemma-4-26b-a4b-it"
   },
   "translation": {
-    "target_language": "Portuguese from Portugal (pt-PT)",
-    "output_suffix": " PT",
-    "system_instruction": "You are a professional subtitle translator specializing in pt-PT. You translate accurately while keeping the original meaning and timing constraints."
+    "target_language": "pt-PT",
+    "output_suffix": ".pt",
+    "system_instruction": "You are a professional subtitle translator. You translate accurately while keeping the original meaning and timing constraints.",
+    "context_blocks_previous": 5,
+    "context_blocks_next": 3
   },
   "watch_folder": "./subs"
 }
