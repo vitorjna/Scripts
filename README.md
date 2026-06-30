@@ -1,11 +1,11 @@
 # Assorted Scripts
 
-This repository contains a collection of various utility scripts designed for different purposes.
+A collection of utility scripts to automate tasks, process media, and streamline daily workflows. From AI-driven translation and video metadata analysis to audiobook processing and Git automation, these lightweight tools are designed to handle common development and media tasks efficiently.
 
 ## Table of Contents
 
 - [AI Translate](#ai-translate)
-- [Gemini Chat](#gemini-chat)
+- [Credit Card Utilities](#credit-card-utilities)
 - [Git Projects Automation](#git-projects-automation)
 - [M4B Splitter](#m4b-splitter)
 - [SVG to PNG Converter](#svg-to-png-converter)
@@ -19,11 +19,11 @@ This script (`translate.py`) is a Python-based tool for automated text translati
 
 For more details, see the [AI Translate README](AI-Translate/README.md).
 
-## Gemini Chat
+## Credit Card Utilities
 
-This script (`chat_with_gemini.py`) is a Python-based tool for interactive conversations with the Gemini AI model.
+This script (`credit_card_utils.py`) is a Python-based tool to validate and generate credit card numbers using the Luhn algorithm.
 
-For more details, see the [Gemini Chat Script README](Gemini-Chat/README.md).
+For more details, see the [Credit Card Utilities README](CreditCardUtils/README.md).
 
 ## Git Projects Automation
 

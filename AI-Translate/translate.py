@@ -176,5 +176,7 @@ def main():
     print("\n" + "-" * 50)
     print("Process finished.")
 
+    os.system('pause')
+
 if __name__ == "__main__":
     main()
