@@ -1,4 +1,5 @@
-# Sample Configuration for Git Projects
+"""Sample configuration file for Git Projects defining repository paths and project mappings."""
+
 import os
 
 # Base paths for repositories

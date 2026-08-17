@@ -2,5 +2,17 @@
 .env
 .vscode
 SubtitleTranslate/subs
-__pycache__
-config.yaml
+
+# Ignore all YAML configuration files
+*.yaml
+*.yml
+
+# Do not ignore the example YAML file
+!config.example.yaml
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/

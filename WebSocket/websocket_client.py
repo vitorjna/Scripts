@@ -1,3 +1,5 @@
+"""Interactive WebSocket client supporting concurrent message sending and receiving."""
+
 import asyncio
 import websockets
 import logging

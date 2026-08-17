@@ -1,3 +1,5 @@
+"""Translate SRT subtitle files using multi-threaded requests to Google Translate."""
+
 import os
 import json
 import logging

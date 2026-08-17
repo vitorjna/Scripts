@@ -1,3 +1,5 @@
+"""Context-aware SRT subtitle translator powered by LLMs (OpenAI-compatible / Gemini APIs)."""
+
 import os
 import json
 import time

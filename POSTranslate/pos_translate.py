@@ -1,3 +1,5 @@
+"""Multi-language POS text translator using Gemini API."""
+
 import json
 import urllib.error
 import urllib.request

@@ -1,3 +1,5 @@
+"""WebSocket echo and broadcast server supporting WS and WSS protocols with TLS/SSL."""
+
 import asyncio
 import websockets
 import logging

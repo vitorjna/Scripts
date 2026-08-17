@@ -1,3 +1,5 @@
+"""Convert SVG files to PNG format with customizable resolution using resvg-py."""
+
 import os
 import sys
 import resvg_py

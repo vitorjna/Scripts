@@ -14,5 +14,5 @@ pip install -r requirements.txt
 ```
 Alternatively, you can install them manually:
 ```bash
-pip install svglib reportlab
+pip install resvg-py pillow
 ```

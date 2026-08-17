@@ -1,3 +1,5 @@
+"""Execute Git commands across multiple local repositories configured by project."""
+
 import os
 import subprocess
 from pathlib import Path

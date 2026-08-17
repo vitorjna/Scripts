@@ -1,3 +1,5 @@
+"""Analyze video files in a folder and sort them by bitrate, filesize, or duration."""
+
 import json
 import os
 import subprocess
