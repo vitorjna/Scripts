@@ -6,6 +6,7 @@ import time
 import logging
 import argparse
 import shutil
+import re
 from openai import OpenAI
 
 # Configure logging
@@ -73,7 +74,9 @@ except Exception as e:
 
 
 def _strip_context_leakage(translated: str) -> str:
-    """Remove any empty lines or prompt delimiter lines the LLM may have echoed back."""
+    """Remove thought tags, empty lines or prompt delimiter lines the LLM may have echoed back."""
+    # Strip thoughts from reasoning models (e.g., <thought>...</thought> or <think>...</think>)
+    translated = re.sub(r'<(?:thought|think)>.*?</(?:thought|think)>', '', translated, flags=re.DOTALL)
     lines = translated.splitlines()
     # Filter out empty lines
     cleaned = [line for line in lines if line.strip()]
@@ -102,6 +105,7 @@ def _get_client():
 # Shared client to avoid repeated initializations
 try:
     _CLIENT, _MODEL_NAME, _PROVIDER = _get_client()
+    _IS_CLOUD_PROVIDER = (str(_PROVIDER).lower() == "cloud")
 except Exception as e:
     logging.error(f"Failed to initialize LLM client: {e}")
     exit(1)
@@ -120,7 +124,7 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
     if not text.strip():
         return ""
 
-    system_instr = CONFIG.get("translation", {}).get("system_instruction", "You are a professional subtitle translator.")
+    system_instr = CONFIG.get("translation", {}).get("system_instruction", "You are a professional subtitle translator. You translate accurately while keeping the original meaning and timing constraints.")
 
     lines_to_translate = [l for l in text.splitlines() if l.strip()]
     expected_line_count = len(lines_to_translate)
@@ -138,9 +142,8 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
         json_payload=json_payload
     )
 
-    if "gemma" in _MODEL_NAME.lower() or _PROVIDER != "local":
-        # Gemma models generally do not support the 'system' role;
-        # merge the system instruction directly into the user message.
+    if "google" in str(_CLIENT.base_url).lower() or "gemma" in _MODEL_NAME.lower():
+        # Gemma models and Google endpoints work best merging system instruction into user message
         messages = [
             {"role": "user", "content": f"{system_instr}\n\nUSER REQUEST:\n{user_prompt}"}
         ]
@@ -150,30 +153,38 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
             {"role": "user", "content": user_prompt}
         ]
 
-    # Disable chain-of-thought / thinking to keep responses clean for Google cloud API.
-    extra_body = None
-    if _PROVIDER != "local":
-        extra_body = {
-            "google": {
-                "thinking_config": {
-                    "thinking_level": "minimal",
-                    "include_thoughts": False
-                }
-            }
-        }
+    if _IS_CLOUD_PROVIDER:
+        max_attempts = 5  # Cloud providers are less reliable, especially free tiers
+    else:
+        max_attempts = 3
 
-    max_attempts = 3
     for attempt in range(1, max_attempts + 1):
         try:
+            if attempt > 1:
+                sleep_for = attempt * attempt
+                time.sleep(sleep_for) # increase time to the square of the attempt number (4, 9, 16...), as the API is returning errors
+                logging.info(f"Retrying translation - waiting {sleep_for}s before attempt {attempt}...")
+
+            elif _IS_CLOUD_PROVIDER:
+                time.sleep(1) # for cloud provider, wait before the first request so we don't hit the RPM limit
+
             kwargs = {
                 "model": _MODEL_NAME,
                 "messages": messages,
                 "max_tokens": 2048,
                 "temperature": 0.1,
-                "top_p": 0.95
+                "top_p": 0.95,
+                "extra_body": {
+                    "extra_body": {
+                        "google": {
+                            "thinking_config": {
+                                "thinking_level": "minimal",
+                                "include_thoughts": False
+                            }
+                        }
+                    }
+                }
             }
-            if extra_body is not None:
-                kwargs["extra_body"] = extra_body
 
             # logging.info(f"Messages: {messages}")
 
@@ -213,8 +224,8 @@ def translate_llm(text: str, target_lang: str, prev_text: str = "", next_text: s
             logging.error(f"[Block translation] Attempt {attempt}/{max_attempts}: Error calling {_PROVIDER} LLM: {e}. Retrying...")
             time.sleep(2)
 
-    logging.warning(
-        f"[Block translation] All {max_attempts} attempts failed. Keeping original text:\n  {repr(text)}"
+    logging.error(
+        f"[Block translation] All {max_attempts} attempts failed. Keeping text:  {repr(text)}"
     )
     return text
 
@@ -225,7 +236,7 @@ def translate_file(srt_path: str, target_lang: str, output_suffix: str) -> bool:
         return False
 
     # Setup file logging for this specific subtitle file
-    log_filename = f"log_{os.path.basename(srt_path)}"
+    log_filename = f"{os.path.basename(srt_path)}_{target_lang}.log"
     log_path = os.path.join(os.path.dirname(os.path.abspath(srt_path)), log_filename)
     file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))

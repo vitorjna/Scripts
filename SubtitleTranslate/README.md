@@ -1,70 +1,84 @@
 # Subtitle Translator
 
-This collection contains Python-based scripts to automate the translation of `.srt` subtitle files. It includes a fast, multi-threaded Google Translate version and a more sophisticated LLM-powered version that uses context from surrounding subtitle blocks for higher quality results.
+Python scripts to translate `.srt` subtitle files:
+- **`translate_subs_llm.py`**: Context-aware translation using Local (LM Studio, Ollama) or Cloud (Gemini, OpenAI) LLMs.
+- **`translate_subs.py`**: Fast, multi-threaded translation via Google Translate web API.
 
-## Scripts
+---
 
-### 1. LLM Translator (`translate_subs_llm.py`)
-This is the advanced version that leverages Large Language Models (LLMs) to provide context-aware translations.
+## Features (LLM Version)
 
-*   **Contextual Awareness**: Sends preceding and following subtitle blocks as context to the LLM to ensure consistent terminology and better flow.
-*   **Provider Support**: Works with any OpenAI-compatible API (e.g., Local LLMs via LM Studio/Ollama, or Cloud APIs like Google AI Studio / Gemini).
-*   **Watch Mode**: Can monitor a specific folder for new `.srt` files and translate them automatically as they arrive.
-*   **Resume Capability**: If interrupted, it can resume from the last translated block by checking the existing output file.
-*   **Robustness**: Includes automatic retries and validation to ensure the translated text has the same number of lines as the original.
-
-### 2. Google Translator (`translate_subs.py`)
-A lightweight and fast translator using the Google Translate web API.
-
-*   **High Speed**: Uses multi-threading (`ThreadPoolExecutor`) to translate multiple subtitle blocks simultaneously.
-*   **No API Key Required**: Uses the public Google Translate interface.
-*   **Simple Usage**: Ideal for quick translations where contextual nuance is less critical.
+- **Context-Aware**: Uses surrounding subtitle blocks and prior translations to preserve scene context and tone.
+- **Sync Protection**: Validates response line counts to prevent subtitle desync; strips `<think>`/`<thought>` reasoning tags.
+- **Crash Recovery**: Resumes interrupted files from the last translated block.
+- **Smart Naming**: Auto-strips `.eng` and preserves `.sdh` tags (e.g., `movie.eng.sdh.srt` $\rightarrow$ `movie.pt.sdh.srt`).
+- **Watch Mode**: Monitors a folder, translates new `.srt` files, and moves originals to `processed/`.
+- **Per-file Logs**: Writes logs alongside subtitles (`<filename>_<lang>.log`).
 
 ---
 
 ## Setup
 
-1.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *(Mainly requires `openai` for the LLM script)*
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-2.  **Configuration**:
-    - Rename `config.example.json` to `config.json`.
-    - Edit `config.json` with your preferred settings:
-        - `llm_provider`: "cloud" or "local".
-        - `cloud`/`local`: API keys, base URLs, and model names.
-        - `translation`: Set your `target_language` and `output_suffix`.
-        - `watch_folder`: The directory to monitor in watch mode.
+2. **Configure `config.json`:**
+   Copy `config.example.json` to `config.json`:
+   ```json
+   {
+     "llm_provider": "local",
+     "local": {
+       "base_url": "http://127.0.0.1:1234/v1/",
+       "model_name": "gemma-4-e4b-it"
+     },
+     "cloud": {
+       "api_key": "YOUR_API_KEY",
+       "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+       "model_name": "gemma-4-26b-a4b-it"
+     },
+     "translation": {
+       "target_language": "pt-PT",
+       "output_suffix": ".pt",
+       "context_blocks_previous": 5,
+       "context_blocks_next": 3
+     },
+     "watch_folder": "./subs"
+   }
+   ```
 
 ---
 
 ## Usage
 
-### Using the LLM Translator
-**Single File:**
+### LLM Translator
 ```bash
-python translate_subs_llm.py path/to/your/subtitle.srt
-```
+# Single file
+python translate_subs_llm.py path/to/subtitle.srt
 
-**Watch Mode (Auto-process folder):**
-Make sure `watch_folder` is set in `config.json`, then run:
-```bash
+# Override language
+python translate_subs_llm.py path/to/subtitle.srt --target-lang "es"
+
+# Watch mode (monitors watch_folder from config.json)
 python translate_subs_llm.py
 ```
 
-
-### Using the Google Translator
+### Google Translator
 ```bash
-python translate_subs.py path/to/your/subtitle.srt --target-lang "pt-PT"
+# Fast multi-threaded translation
+python translate_subs.py path/to/subtitle.srt --target-lang "pt-PT"
 ```
 
-## Features Summary
-| Feature | LLM version | Google version |
+---
+
+## Comparison
+
+| Feature | LLM (`translate_subs_llm.py`) | Google (`translate_subs.py`) |
 | :--- | :---: | :---: |
-| Context-Aware | Yes | No |
-| Multi-threaded | No | Yes |
-| Watch Folder | Yes | No |
-| API Key Needed | Yes (Cloud) / No (Local) | No |
-| Best for | Quality & Accuracy | Speed |
+| **Context & Nuance** | Yes (sliding window) | No |
+| **Resume Interrupted** | Yes | No |
+| **Watch Folder** | Yes (`processed/` archive) | No |
+| **Speed / Concurrency** | Sequential | Multi-threaded (30 workers) |
+| **Requirements** | Local LLM / Cloud API key | None |
+| **Best For** | Movies & TV shows | Fast bulk translations |

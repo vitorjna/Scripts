@@ -112,7 +112,16 @@ def translate_file(srt_path, target_lang, output_suffix):
             i = futures[future]
             results[i] = future.result()
 
-    output_path = srt_path.replace(".srt", f"{output_suffix}.srt")
+    dirname = os.path.dirname(srt_path)
+    basename = os.path.basename(srt_path)
+    if basename.lower().endswith(".srt"):
+        basename = basename[:-4]
+    if basename.lower().endswith(".eng"):
+        basename = basename[:-4]
+
+    suffix = output_suffix if (output_suffix.startswith('.') or output_suffix.startswith('_')) else f".{output_suffix}"
+    output_filename = f"{basename}{suffix}.srt"
+    output_path = os.path.join(dirname, output_filename)
 
     # Write reconstructed blocks into output file
     try:
