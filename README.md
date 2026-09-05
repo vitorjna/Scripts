@@ -8,9 +8,11 @@ A collection of utility scripts to automate tasks, process media, and streamline
 - [Extract Subtitles](#extract-subtitles)
 - [Git Projects Automation](#git-projects-automation)
 - [POS Translate](#pos-translate)
+- [Remove High Bitrate Audio](#remove-high-bitrate-audio)
 - [Split M4B](#split-m4b)
 - [SVG to PNG Converter](#svg-to-png-converter)
 - [Subtitle Translate](#subtitle-translate)
+- [VHDX Compactor](#vhdx-compactor)
 - [Video Metadata Analyzer](#video-metadata-analyzer)
 - [WebSocket Client and Server](#websocket-client-and-server)
 - [Zip to 7z Converter](#zip-to-7z-converter)
@@ -39,6 +41,12 @@ This script (`pos_translate.py`) is a Python-based tool to translate POS (Point 
 
 For more details, see the [POS Translate README](POSTranslate/README.md).
 
+## Remove High Bitrate Audio
+
+This script (`remove_high_bitrate_audio.py`) is a Python-based tool to remux video files and remove EAC3, DTS, and other high-bitrate or lossless audio tracks safely when an AAC fallback track is present.
+
+For more details, see the [Remove High Bitrate Audio README](RemoveHighBitrateAudio/README.md).
+
 ## Split M4B
 
 This script (`split_m4b_chapters.py`) is a Python-based tool to split an M4B audiobook file into individual M4A files, one for each chapter, using `ffmpeg`.
@@ -56,6 +64,12 @@ For more details, see the [SVG to PNG Converter README](SVG-to-PNG/README.md).
 This collection contains scripts for automated subtitle translation using either Google Translate or context-aware LLMs.
 
 For more details, see the [Subtitle Translate README](SubtitleTranslate/README.md).
+
+## VHDX Compactor
+
+This script (`compact_vhdx.bat`) is a drag-and-drop Windows batch tool to compact `.vhdx` / `.vhd` virtual disks with `diskpart`, reclaiming space left behind by WSL2 distributions and Hyper-V virtual machines.
+
+For more details, see the [VHDX Compactor README](VHDX-compactor/README.md).
 
 ## Video Metadata Analyzer
 
