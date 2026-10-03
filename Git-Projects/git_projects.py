@@ -22,6 +22,7 @@ class Commands(IntEnum):
     STATUS = 7
     CMD = 8
     OPEN = 9
+    CLONE = 10
 
 class Tools(ExtendedEnum):
     TORT = "tortoise"
@@ -90,7 +91,7 @@ if __name__ == "__main__":
 
             command_name = input(f"\n[{project_name}] Select a Command: {commands_display}: ").upper()
             if command_name == 'Q':
-                os.system('pause')
+                input("Press Enter to exit...")
                 exit()
 
             if command_name == 'BACK':
@@ -101,6 +102,21 @@ if __name__ == "__main__":
                 full_repo_path = Path(reposLocation) / first_repo
                 print(f"Opening {full_repo_path} in Explorer...")
                 os.startfile(full_repo_path)
+                continue
+
+            if command_name == 'CLONE':
+                remote_base = input("Enter remote base URL: ").rstrip('/')
+                for repo in repos:
+                    full_repo_path = Path(reposLocation) / repo
+                    repo_name = Path(repo).name
+                    clone_url = f"{remote_base}/{repo_name}"
+                    if tool_to_use == Tools.TORT:
+                        # clone's target is /path (+ /exactpath), not /dir - otherwise it appends repo_name again
+                        cmd = f'"{PATH_TORTOISE}" /command:clone /url:"{clone_url}" /path:"{full_repo_path}" /exactpath'
+                    else:
+                        cmd = f'start /wait cmd /c "git clone "{clone_url}" "{full_repo_path}" && pause"'
+                    print(f'Running: {cmd}')
+                    subprocess.run(cmd, shell=True)
                 continue
 
             if command_name not in Commands._member_names_:
@@ -123,4 +139,4 @@ if __name__ == "__main__":
                 print(f'Running: {cmd}')
                 subprocess.run(cmd, shell=True)
 
-    os.system('pause')
+    input("Press Enter to exit...")
